@@ -546,7 +546,7 @@ class TemplateProcessor
         return $imageAttrs;
     }
 
-    private function addImageToRelations($partFileName, $rid, $imgPath, $imageMimeType)
+    private function addImageToRelations($partFileName, $rid, $imgPath, $imageMimeType, $resizeImg = false, $destWidth = -1, $destHeight = -1)
     {
         // define templates
         $typeTpl = '<Override PartName="/word/media/{IMG}" ContentType="image/{EXT}"/>';
@@ -573,7 +573,7 @@ class TemplateProcessor
 
             // add image to document
             $imgName = 'image_' . $rid . '_' . pathinfo($partFileName, PATHINFO_FILENAME) . '.' . $imgExt;
-            $this->zipClass->pclzipAddFile($imgPath, 'word/media/' . $imgName);
+            $this->zipClass->pclzipAddFile($imgPath, 'word/media/' . $imgName, $resizeImg, $destWidth, $destHeight);
             $this->tempDocumentNewImages[$imgPath] = $imgName;
 
             // setup type for image
@@ -600,7 +600,7 @@ class TemplateProcessor
      * @param mixed $replace Path to image, or array("path" => xx, "width" => yy, "height" => zz)
      * @param int $limit
      */
-    public function setImageValue($search, $replace, $limit = self::MAXIMUM_REPLACEMENTS_DEFAULT)
+    public function setImageValue($search, $replace, $limit = self::MAXIMUM_REPLACEMENTS_DEFAULT, $fullWidth = false)
     {
         // prepare $search_replace
         if (!is_array($search)) {
@@ -653,7 +653,26 @@ class TemplateProcessor
                     $rid = 'rId' . $imgIndex;
 
                     // replace preparations
-                    $this->addImageToRelations($partFileName, $rid, $imgPath, $preparedImageAttrs['mime']);
+                    if($fullWidth) {
+                        $newWidth = intval(str_replace("px", "", $preparedImageAttrs['width']));
+                        $newHeight = intval(str_replace("px", "", $preparedImageAttrs['height']));
+
+                        // Set width to 700, scaled
+                        $newHeight = intval(($newHeight / $newWidth) * 700);
+                        $newWidth = 700;
+
+                        // If height too big, set max
+                        if($newHeight > 250) {
+                            $newWidth = intval(($newWidth / $newHeight) * 250);
+                            $newHeight = 250;
+                        }
+
+                        $this->addImageToRelations($partFileName, $rid, $imgPath, $preparedImageAttrs['mime'], true, $newWidth, $newHeight);
+                    }
+                    else {
+                        $this->addImageToRelations($partFileName, $rid, $imgPath, $preparedImageAttrs['mime']);
+                    }
+                    
                     $xmlImage = str_replace(array('{RID}', '{WIDTH}', '{HEIGHT}'), array($rid, $preparedImageAttrs['width'], $preparedImageAttrs['height']), $imgTpl);
 
                     // replace variable

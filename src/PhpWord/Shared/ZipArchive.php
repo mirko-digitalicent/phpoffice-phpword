@@ -217,6 +217,30 @@ class ZipArchive
         return $contents;
     }
 
+    function getImageResized($origPath, $destPath, $newWidth, $newHeight) {
+        list($width, $height) = getimagesize($origPath);
+
+        $dest = imagecreatetruecolor($newWidth, $newHeight);
+
+        imagealphablending($dest, false);
+        imagesavealpha($dest, true);
+        $transparent = imagecolorallocatealpha($dest, 255, 255, 255, 127);
+        imagefilledrectangle($dest, 0, 0, $newWidth, $newHeight, $transparent);
+        
+        $source = imagecreatefrompng($origPath);
+
+        imagecopyresampled($dest, $source, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
+       // $dest = imagescale($source, $newWidth, -1, IMG_BILINEAR_FIXED);
+
+        $newImg = imagepng($dest, $destPath);
+
+        /*$sourceImg = imagecreatefrompng($origPath);
+        $destImg = imagescale($sourceImg, $newWidth, -1, IMG_BICUBIC); // $newHeight -1 para que preserve aspect ratio
+        $newImg = imagepng($destImg, $destPath);*/
+        
+        return $newImg;
+    }
+
     /**
      * Add a new file to the zip archive (emulate \ZipArchive)
      *
@@ -224,7 +248,7 @@ class ZipArchive
      * @param string $localname Directory/Name of the file added to the zip
      * @return bool
      */
-    public function pclzipAddFile($filename, $localname = null)
+    public function pclzipAddFile($filename, $localname = null, $resizeImg = false, $destWidth = -1, $destHeight = -1)
     {
         /** @var \PclZip $zip Type hint */
         $zip = $this->zip;
@@ -244,7 +268,13 @@ class ZipArchive
         if ($filenameParts['basename'] != $localnameParts['basename']) {
             $tempFile = true; // temp file created
             $temppath = $this->tempDir . DIRECTORY_SEPARATOR . $localnameParts['basename'];
-            copy($filename, $temppath);
+            
+            if($resizeImg) {
+                $this->getImageResized($filename, $temppath, $destWidth, $destHeight);
+            }
+            else {
+                copy($filename, $temppath);
+            }
             $filename = $temppath;
             $filenameParts = pathinfo($temppath);
         }
